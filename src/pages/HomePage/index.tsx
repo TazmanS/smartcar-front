@@ -1,4 +1,29 @@
+import { useEffect, useState } from "react";
+import { Button } from "../../components/Button";
+import { getStatusService } from "../../api/services/status-service";
+
 function HomePage() {
+  const [status, setStatus] = useState("Loading...");
+
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const response = await getStatusService();
+
+        setStatus(response.message);
+      } catch (error) {
+        console.error(error);
+        setStatus("Backend unavailable");
+      }
+    };
+
+    fetchStatus();
+  }, []);
+
+  const handleCommand = (command: string) => {
+    console.log(command);
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center p-8">
       <h1 className="text-4xl font-bold mb-8">
@@ -7,31 +32,41 @@ function HomePage() {
 
       <div className="bg-white rounded-xl shadow-md p-6 mb-8 w-full max-w-md">
         <h2 className="text-xl font-semibold mb-2">Status</h2>
-        <p>Car is ready</p>
+        <p>{status}</p>
       </div>
 
       <div className="flex flex-col items-center gap-4">
-        <button className="px-8 py-3 rounded-lg bg-blue-500 text-white font-medium hover:opacity-90">
-          Forward
-        </button>
+        <Button
+          label="Forward"
+          command="forward"
+          onCommand={handleCommand}
+        />
 
         <div className="flex gap-4">
-          <button className="px-8 py-3 rounded-lg bg-blue-500 text-white font-medium hover:opacity-90">
-            Left
-          </button>
+          <Button
+            label="Left"
+            command="Left"
+            onCommand={handleCommand}
+          />
 
-          <button className="px-8 py-3 rounded-lg bg-red-500 text-white font-medium hover:opacity-90">
-            Stop
-          </button>
+          <Button
+            label="Stop"
+            command="Stop"
+            onCommand={handleCommand}
+          />
 
-          <button className="px-8 py-3 rounded-lg bg-blue-500 text-white font-medium hover:opacity-90">
-            Right
-          </button>
+          <Button
+            label="Right"
+            command="Right"
+            onCommand={handleCommand}
+          />
         </div>
 
-        <button className="px-8 py-3 rounded-lg bg-blue-500 text-white font-medium hover:opacity-90">
-          Backward
-        </button>
+        <Button
+          label="Backward"
+          command="Backward"
+          onCommand={handleCommand}
+        />
       </div>
     </div>
   );
