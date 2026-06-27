@@ -1,17 +1,25 @@
-FROM node:22
+FROM node:22 AS builder
 
 WORKDIR /app
 
 COPY package*.json ./
-
 RUN npm install
 
 COPY . .
-
 RUN npm run build
 
-RUN npm install -g serve
+FROM nginx:alpine
 
-EXPOSE 3000
+RUN apk add --no-cache gettext
 
-CMD ["serve", "-s", "dist", "-l", "3000"]
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+COPY public/config.template.js /usr/share/nginx/html/config.template.js
+
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+EXPOSE 80
+
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["nginx", "-g", "daemon off;"]
