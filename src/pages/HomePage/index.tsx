@@ -27,7 +27,7 @@ function HomePage() {
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center p-8">
       <h1 className="text-4xl font-bold mb-8">
-        SmartCar Home Page v1
+        SmartCar Home Page v2
       </h1>
 
       <div className="bg-white rounded-xl shadow-md p-6 mb-8 w-full max-w-md">
