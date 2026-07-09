@@ -4,6 +4,6 @@ import { getApiUrl } from "../config";
 const apiUrl = getApiUrl();
 
 export const api = axios.create({
-  baseURL: apiUrl + "/api",
+  baseURL: apiUrl,
   timeout: 5000,
 });
