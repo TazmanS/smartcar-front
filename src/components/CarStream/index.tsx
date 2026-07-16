@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { getApiUrl } from "../../config";
 
-const STREAM_URL = `${import.meta.env.VITE_API_URL}/car-stream`;
+const apiUrl = getApiUrl();
+const STREAM_URL = `${apiUrl}/car-stream`;
 const RECONNECT_DELAY = 3000;
 
 export type StreamStatus =
