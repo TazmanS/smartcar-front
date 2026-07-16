@@ -3,7 +3,7 @@ import type { TCarAction } from "../../api/types/car-action-type";
 type TButtonProps = {
   label: string;
   command: TCarAction;
-  onCommand: (command: string) => void;
+  onCommand: (command: TCarAction) => void;
   onStop?: () => void;
 };
 

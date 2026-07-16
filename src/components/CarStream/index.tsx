@@ -17,7 +17,7 @@ export default function CarStream({ onStatusChange }: Props) {
   const [status, setStatus] =
     useState<StreamStatus>("connecting");
 
-  const timerRef = useRef<number>(null);
+  const timerRef = useRef<number>(undefined);
 
   const changeStatus = (value: StreamStatus) => {
     setStatus(value);
