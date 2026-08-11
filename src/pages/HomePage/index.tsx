@@ -1,239 +1,76 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { getCars, type Car } from "../../api/services/car-service";
 
-import { Button } from "../../components/Button";
-import CarStream, { type StreamStatus } from "../../components/CarStream";
+type Props = { onOpenCar: (carId: string) => void };
 
-import { getStatusService } from "../../api/services/status-service";
-import { sendCarAction } from "../../api/services/car-service";
+function HomePage({ onOpenCar }: Props) {
+  const [cars, setCars] = useState<Car[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
 
-import type { TCarAction } from "../../api/types/car-action-type";
-
-type BackendStatus = "connecting" | "online" | "offline";
-
-function HomePage() {
-  const [backendStatus, setBackendStatus] = useState<BackendStatus>("connecting");
-
-  const [statusMessage, setStatusMessage] = useState("Connecting...");
-
-  const [cameraStatus, setCameraStatus] = useState<StreamStatus>("connecting");
-
-  useEffect(() => {
-    const fetchStatus = async () => {
-      try {
-        const response = await getStatusService();
-
-        setBackendStatus("online");
-        setStatusMessage(response.message);
-      } catch (error) {
-        console.error(error);
-
-        setBackendStatus("offline");
-        setStatusMessage("Backend unavailable");
-      }
-    };
-
-    fetchStatus();
+  const loadCars = useCallback(async (searchTerm: string) => {
+    setLoading(true);
+    setError("");
+    try {
+      setCars(await getCars({
+        page: 1,
+        per_page: 24,
+        search: searchTerm,
+        sort_by: "created_at",
+        order: "desc",
+      }));
+    } catch (err) {
+      console.error(err);
+      setError("We could not load your cars. Check that the backend is available.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const handleCommand = async (command: TCarAction) => {
-    try {
-      await sendCarAction(command);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleStopCommand = async () => {
-    try {
-      await sendCarAction("stop");
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const headerColor =
-    backendStatus === "online"
-      ? "bg-green-100 text-green-700"
-      : backendStatus === "connecting"
-        ? "bg-yellow-100 text-yellow-700"
-        : "bg-red-100 text-red-700";
-
-  const dotColor =
-    backendStatus === "online"
-      ? "bg-green-500"
-      : backendStatus === "connecting"
-        ? "bg-yellow-500 animate-pulse"
-        : "bg-red-500";
-
-  const backendText =
-    backendStatus === "online"
-      ? "Online"
-      : backendStatus === "connecting"
-        ? "Connecting..."
-        : "Offline";
+  useEffect(() => {
+    void loadCars("");
+  }, [loadCars]);
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <div className="mx-auto max-w-7xl p-8">
-        <header className="mb-8 flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-slate-800">
-            SmartCar Dashboard
-          </h1>
-
-          <div
-            className={`flex items-center gap-2 rounded-full px-4 py-2 ${headerColor}`}
-          >
-            <div className={`h-3 w-3 rounded-full ${dotColor}`} />
-            <span className="text-sm font-medium">
-              {backendText}
-            </span>
-          </div>
-        </header>
-
-        <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
-          {/* Camera */}
-          <div className="rounded-2xl bg-white p-5 shadow-lg">
-            <h2 className="mb-4 text-lg font-semibold">
-              Camera Stream
-            </h2>
-
-            <CarStream onStatusChange={setCameraStatus} />
-          </div>
-
-          {/* Right panel */}
-          <div className="space-y-4">
-            <div className="rounded-2xl bg-white p-5 shadow-lg">
-              <h2 className="mb-4 text-lg font-semibold">
-                System Status
-              </h2>
-
-              <div className="space-y-4 text-sm">
-                <div className="flex justify-between">
-                  <span>Backend</span>
-
-                  <span
-                    className={`font-semibold ${backendStatus === "online"
-                      ? "text-green-600"
-                      : backendStatus === "connecting"
-                        ? "text-yellow-600"
-                        : "text-red-600"
-                      }`}
-                  >
-                    {backendText}
-                  </span>
-                </div>
-
-                <div className="flex justify-between gap-4">
-                  <span>System</span>
-
-                  <span className="text-right text-slate-600">
-                    {statusMessage}
-                  </span>
-                </div>
-
-                <div className="flex justify-between">
-                  <span>MQTT</span>
-
-                  <span
-                    className={
-                      backendStatus === "online"
-                        ? "text-green-600"
-                        : "text-slate-500"
-                    }
-                  >
-                    {backendStatus === "online"
-                      ? "Connected"
-                      : "--"}
-                  </span>
-                </div>
-
-                <div className="flex justify-between">
-                  <span>Camera</span>
-
-                  <span
-                    className={
-                      cameraStatus === "connected"
-                        ? "text-green-600"
-                        : cameraStatus === "connecting"
-                          ? "text-yellow-600"
-                          : "text-red-600"
-                    }
-                  >
-                    {cameraStatus === "connected"
-                      ? "Streaming"
-                      : cameraStatus === "connecting"
-                        ? "Connecting..."
-                        : "Offline"}
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="rounded-2xl bg-white p-5 shadow-lg">
-              <h2 className="mb-4 text-lg font-semibold">
-                Telemetry
-              </h2>
-
-              <div className="space-y-4 text-sm">
-                <div className="flex justify-between">
-                  <span>Battery</span>
-                  <span>--%</span>
-                </div>
-
-                <div className="flex justify-between">
-                  <span>Speed</span>
-                  <span>--</span>
-                </div>
-
-                <div className="flex justify-between">
-                  <span>Wi-Fi</span>
-                  <span>-- dBm</span>
-                </div>
-              </div>
-            </div>
-          </div>
+    <section>
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-widest text-blue-600">Fleet</p>
+          <h1 className="mt-2 text-3xl font-bold text-slate-900">Your cars</h1>
+          <p className="mt-2 text-slate-600">Select a car to view its live camera, details, and controls.</p>
         </div>
-
-        {/* Controls */}
-        <div className="mt-10 flex flex-col items-center gap-4">
-          <Button
-            label="Forward"
-            command="forward"
-            onCommand={handleCommand}
-            onStop={handleStopCommand}
-          />
-
-          <div className="flex gap-4">
-            <Button
-              label="Left"
-              command="left"
-              onCommand={handleCommand}
-              onStop={handleStopCommand}
-            />
-
-            <Button
-              label="Stop"
-              command="stop"
-              onCommand={handleCommand}
-              onStop={handleStopCommand}
-            />
-
-            <Button
-              label="Right"
-              command="right"
-              onCommand={handleCommand}
-              onStop={handleStopCommand}
-            />
-          </div>
-
-          <Button
-            label="Backward"
-            command="backward"
-            onCommand={handleCommand}
-            onStop={handleStopCommand}
-          />
-        </div>
+        <form onSubmit={(event) => { event.preventDefault(); void loadCars(search); }} className="flex gap-2">
+          <label className="sr-only" htmlFor="car-search">Search cars</label>
+          <input id="car-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search cars" className="w-44 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+          <button type="submit" className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Search
+          </button>
+        </form>
       </div>
-    </div>
+
+      {loading ? (
+        <p className="rounded-xl border border-slate-200 bg-white p-6 text-slate-600">Loading cars...</p>
+      ) : error ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-red-700">{error}</div>
+      ) : cars.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center">
+          <p className="font-medium text-slate-800">No cars found</p>
+          <p className="mt-2 text-sm text-slate-600">Cars returned by the backend will appear here.</p>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {cars.map((car) => (
+            <button key={car.id} type="button" onClick={() => onOpenCar(car.id)} className="group rounded-xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Car</p>
+              <h2 className="mt-2 text-xl font-semibold text-slate-900">{car.name}</h2>
+              <p className="mt-3 text-sm text-slate-500">ID: {car.id}</p>
+              <span className="mt-5 inline-block text-sm font-semibold text-blue-600 group-hover:text-blue-700">Open dashboard →</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
