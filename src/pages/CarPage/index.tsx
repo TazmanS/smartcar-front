@@ -61,19 +61,21 @@ function CarPage({ carId }: Props) {
               {cameraStatus === "connected" ? "Streaming" : cameraStatus === "connecting" ? "Connecting" : "Offline"}
             </span>
           </div>
-          <CarStream carId={carId} onStatusChange={setCameraStatus} />
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_210px]">
+            <CarStream carId={carId} onStatusChange={setCameraStatus} />
 
-          <div className="mt-6 border-t border-slate-100 pt-5">
-            <h2 className="mb-4 text-lg font-semibold text-slate-900">Drive controls</h2>
-            {actionError && <p className="mb-3 text-sm text-red-600">{actionError}</p>}
-            <div className="flex flex-col items-center gap-3">
-              <Button label="Forward" command="forward" onCommand={(action) => void runAction(action)} onStop={() => void runAction("stop")} />
-              <div className="flex gap-3">
-                <Button label="Left" command="left" onCommand={(action) => void runAction(action)} onStop={() => void runAction("stop")} />
-                <Button label="Stop" command="stop" onCommand={(action) => void runAction(action)} onStop={() => undefined} />
-                <Button label="Right" command="right" onCommand={(action) => void runAction(action)} onStop={() => void runAction("stop")} />
+            <div className="border-t border-slate-100 pt-5 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
+              <h2 className="mb-4 text-center text-lg font-semibold text-slate-900">Drive controls</h2>
+              {actionError && <p className="mb-3 text-center text-sm text-red-600">{actionError}</p>}
+              <div className="flex flex-col items-center gap-2">
+                <Button label="Forward" command="forward" onCommand={(action) => void runAction(action)} onStop={() => void runAction("stop")} className="!min-w-16 !px-3 !py-2 text-sm" />
+                <div className="flex gap-2">
+                  <Button label="Left" command="left" onCommand={(action) => void runAction(action)} onStop={() => void runAction("stop")} className="!min-w-16 !px-2 !py-2 text-sm" />
+                  <Button label="Stop" command="stop" onCommand={(action) => void runAction(action)} onStop={() => undefined} className="!min-w-16 !px-2 !py-2 text-sm" />
+                  <Button label="Right" command="right" onCommand={(action) => void runAction(action)} onStop={() => void runAction("stop")} className="!min-w-16 !px-2 !py-2 text-sm" />
+                </div>
+                <Button label="Backward" command="backward" onCommand={(action) => void runAction(action)} onStop={() => void runAction("stop")} className="!min-w-16 !px-3 !py-2 text-sm" />
               </div>
-              <Button label="Backward" command="backward" onCommand={(action) => void runAction(action)} onStop={() => void runAction("stop")} />
             </div>
           </div>
         </div>

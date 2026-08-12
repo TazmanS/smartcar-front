@@ -63,6 +63,10 @@ export const getCarInfo = async (carId: string): Promise<Car> => {
   return normaliseCar(data) ?? { id: carId, name: `Car ${carId}` };
 };
 
+export const stopCarStream = async (carId: string): Promise<void> => {
+  await api.post(`/cars/${encodeURIComponent(carId)}/stream/stop`);
+};
+
 export const sendCarAction = async (
   carId: string,
   command: TCarAction,

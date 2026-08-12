@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getApiUrl } from "../../config";
+import { stopCarStream } from "../../api/services/car-service";
 
 const RECONNECT_DELAY = 3000;
 
@@ -14,6 +15,8 @@ export default function CarStream({ carId, onStatusChange }: Props) {
   const [streamUrl, setStreamUrl] = useState("");
   const [status, setStatus] = useState<StreamStatus>("connecting");
   const timerRef = useRef<number>(undefined);
+  const imageRef = useRef<HTMLImageElement>(null);
+  const mountedRef = useRef(false);
 
   const changeStatus = useCallback((value: StreamStatus) => {
     setStatus(value);
@@ -28,15 +31,35 @@ export default function CarStream({ carId, onStatusChange }: Props) {
   }, [carId, changeStatus]);
 
   useEffect(() => {
+    mountedRef.current = true;
+
     connect();
+
     return () => {
+      mountedRef.current = false;
+
       window.clearTimeout(timerRef.current);
-      setStreamUrl("");
+      void stopCarStream(carId).catch((error: unknown) => {
+        console.error("Could not stop car stream", error);
+      });
+
+      if (imageRef.current) {
+        imageRef.current.src = "about:blank";
+        imageRef.current.removeAttribute("src");
+      }
     };
   }, [connect]);
 
   const reconnect = useCallback(() => {
-    timerRef.current = window.setTimeout(connect, RECONNECT_DELAY);
+    if (!mountedRef.current) {
+      return;
+    }
+
+    timerRef.current = window.setTimeout(() => {
+      if (mountedRef.current) {
+        connect();
+      }
+    }, RECONNECT_DELAY);
   }, [connect]);
 
   return (
@@ -59,6 +82,7 @@ export default function CarStream({ carId, onStatusChange }: Props) {
         </div>
       )}
       <img
+        ref={imageRef}
         src={streamUrl}
         alt={`Live stream for car ${carId}`}
         className="h-full w-full object-contain"
