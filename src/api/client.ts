@@ -1,9 +1,8 @@
 import axios from "axios";
-import { getApiUrl } from "../config";
 
-const apiUrl = getApiUrl();
+export const PATH = "/api";
 
 export const api = axios.create({
-  baseURL: apiUrl,
+  baseURL: PATH,
   timeout: 5000,
 });

@@ -1,12 +1,48 @@
-name: Frontend CI
+name: Build and publish frontend image
 
-on: 
+on:
   push:
     branches:
       - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  DOCKERHUB_USERNAME: tazmans
+  IMAGE_NAME: smartcar-frontend
 
 jobs:
+  version:
+    runs-on: ubuntu-latest
+
+    outputs:
+      front_version: ${{ steps.update_front.outputs.front_version }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Update frontend version
+        id: update_front
+        run: |
+          npm version patch --no-git-tag-version
+          echo "front_version=$(jq -r '.version' package.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload version files
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-version-files
+          path: |
+            package.json
+            package-lock.json
+
   build:
+    needs: version
     runs-on: ubuntu-latest
 
     steps:
@@ -18,28 +54,53 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
 
-      - name: Install dependencies
-        run: npm install    
-
-      - name: Build application
-        run: npm run build
-
-      - name: Login to Docker Hub
+      - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_TOKEN }}
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and Push Docker Image
+      - name: Build and push frontend
         uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: tazmans/smartcar-frontend:latest
+          provenance: false
+          sbom: false
+          tags: ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ needs.version.outputs.front_version }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+  release:
+    needs:
+      - version
+      - build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Download version files
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-version-files
+          path: .
+
+      - name: Commit version changes
+        run: |
+          git config user.name "Smartcar CI"
+          git config user.email "ci@smartcar.local"
+          git add package.json package-lock.json
+
+          if git diff --cached --quiet; then
+            echo "No version changes"
+          else
+            git commit -m "ci: bump frontend version [skip ci]"
+            git push
+          fi

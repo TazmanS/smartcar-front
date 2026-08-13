@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getApiUrl } from "../../config";
+import { PATH } from "../../api/client";
 import { stopCarStream } from "../../api/services/car-service";
 
 const RECONNECT_DELAY = 3000;
@@ -26,8 +26,8 @@ export default function CarStream({ carId, onStatusChange }: Props) {
   const connect = useCallback(() => {
     window.clearTimeout(timerRef.current);
     changeStatus("connecting");
-    const streamPath = `/cars/${encodeURIComponent(carId)}/stream`;
-    setStreamUrl(`${getApiUrl()}${streamPath}?t=${Date.now()}`);
+    const streamPath = `${PATH}/cars/${encodeURIComponent(carId)}/stream`;
+    setStreamUrl(`${streamPath}?t=${Date.now()}`);
   }, [carId, changeStatus]);
 
   useEffect(() => {
