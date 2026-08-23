@@ -71,6 +71,6 @@ export const sendCarAction = async (
   carId: string,
   command: TCarAction,
 ): Promise<unknown> => {
-  const response = await api.post("/car-actions", { car_id: carId, action: command });
+  const response = await api.post(`/cars/${encodeURIComponent(carId)}/actions`, { action: command });
   return response.data;
 };
