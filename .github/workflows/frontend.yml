@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+      - dev
+
   workflow_dispatch:
 
 permissions:
@@ -18,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
 
     outputs:
-      front_version: ${{ steps.update_front.outputs.front_version }}
+      front_version: ${{ steps.update_version.outputs.front_version }}
 
     steps:
       - name: Checkout repository
@@ -27,13 +29,40 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Update frontend version
-        id: update_front
+      - name: Update version
+        id: update_version
         run: |
-          npm version patch --no-git-tag-version
-          echo "front_version=$(jq -r '.version' package.json)" >> "$GITHUB_OUTPUT"
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
 
-      - name: Upload version files
+            npm version patch --no-git-tag-version
+
+            VERSION=$(jq -r '.version' package.json)
+
+            echo "Production version: ${VERSION}"
+            echo "front_version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+          else
+
+            VERSION=$(cat DEV_VERSION)
+
+            echo "Current development version: ${VERSION}"
+
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+
+            PATCH=$((PATCH + 1))
+
+            NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+
+            echo "${NEW_VERSION}" > DEV_VERSION
+
+            echo "Development version: ${NEW_VERSION}"
+
+            echo "front_version=${NEW_VERSION}-dev" >> "$GITHUB_OUTPUT"
+
+          fi
+          
+      - name: Upload production version files
+        if: github.ref_name == 'main'
         uses: actions/upload-artifact@v4
         with:
           name: frontend-version-files
@@ -41,8 +70,16 @@ jobs:
             package.json
             package-lock.json
 
+      - name: Upload development version file
+        if: github.ref_name == 'dev'
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dev-version
+          path: DEV_VERSION
+
   build:
     needs: version
+
     runs-on: ubuntu-latest
 
     steps:
@@ -72,11 +109,12 @@ jobs:
           tags: ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ needs.version.outputs.front_version }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
-
+  
   release:
     needs:
       - version
       - build
+
     runs-on: ubuntu-latest
 
     steps:
@@ -86,22 +124,47 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Download version files
+      - name: Download production version files
+        if: github.ref_name == 'main'
         uses: actions/download-artifact@v4
         with:
           name: frontend-version-files
           path: .
 
-      - name: Commit version changes
+      - name: Download development version file
+        if: github.ref_name == 'dev'
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dev-version
+          path: .
+
+      - name: Commit production version
+        if: github.ref_name == 'main'
         run: |
-          git config user.name "Smartcar CI"
+          git config user.name "SmartCar CI"
           git config user.email "ci@smartcar.local"
+
           git add package.json package-lock.json
 
           if git diff --cached --quiet; then
             echo "No version changes"
           else
             git commit -m "ci: bump frontend version [skip ci]"
+            git push
+          fi
+
+      - name: Commit development version
+        if: github.ref_name == 'dev'
+        run: |
+          git config user.name "SmartCar CI"
+          git config user.email "ci@smartcar.local"
+
+          git add DEV_VERSION
+
+          if git diff --cached --quiet; then
+            echo "No version changes"
+          else
+            git commit -m "ci: bump frontend dev version [skip ci]"
             git push
           fi
 
@@ -125,12 +188,14 @@ jobs:
         run: |
           sudo wget -O /usr/local/bin/yq \
             https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+
           sudo chmod +x /usr/local/bin/yq
 
       - name: Show yq version
         run: yq --version
 
-      - name: Update frontend image version
+      - name: Update production frontend image
+        if: github.ref_name == 'main'
         working-directory: deployment
         run: |
           yq -i '
@@ -138,7 +203,17 @@ jobs:
             "tazmans/smartcar-frontend:${{ needs.version.outputs.front_version }}"
           ' kubernetes/base/frontend/deployment.yaml
 
-      - name: Commit deployment changes
+      - name: Update development frontend image
+        if: github.ref_name == 'dev'
+        working-directory: deployment
+        run: |
+          yq -i '
+            (.images[] | select(.name == "tazmans/smartcar-frontend").newTag) =
+            "${{ needs.version.outputs.front_version }}"
+          ' kubernetes/overlays/dev/kustomization.yaml
+
+      - name: Commit production deployment changes
+        if: github.ref_name == 'main'
         working-directory: deployment
         run: |
           git config user.name "SmartCar CI"
@@ -150,5 +225,21 @@ jobs:
             echo "No deployment changes"
           else
             git commit -m "ci: update frontend image version"
+            git push
+          fi
+
+      - name: Commit development deployment changes
+        if: github.ref_name == 'dev'
+        working-directory: deployment
+        run: |
+          git config user.name "SmartCar CI"
+          git config user.email "ci@smartcar.local"
+
+          git add kubernetes/overlays/dev/kustomization.yaml
+
+          if git diff --cached --quiet; then
+            echo "No deployment changes"
+          else
+            git commit -m "ci: update frontend dev image version"
             git push
           fi

@@ -17,7 +17,7 @@ export const Button = ({ label, command, onCommand, onStop, className = "" }: Bu
     }}
     onPointerUp={() => onStop?.()}
     onPointerCancel={onStop}
-    className={`min-w-24 rounded-lg bg-blue-600 px-5 py-3 font-medium text-white shadow-sm transition hover:bg-blue-500 active:bg-blue-700 ${className}`}
+    className={`min-w-24 rounded-lg bg-blue-600 px-5 py-3 font-medium text-white shadow-sm transition hover:bg-blue-500 active:bg-blue-700 select-none ${className}`}
   >
     {label}
   </button>
