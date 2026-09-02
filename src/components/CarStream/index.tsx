@@ -6,12 +6,22 @@ const RECONNECT_DELAY = 3000;
 
 export type StreamStatus = "connecting" | "connected" | "disconnected";
 
+export type Detection = {
+  className: string;
+  confidence: number;
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+};
+
 type Props = {
   carId: string;
+  detections?: Detection[];
   onStatusChange?: (status: StreamStatus) => void;
 };
 
-export default function CarStream({ carId, onStatusChange }: Props) {
+export default function CarStream({ carId, detections = [], onStatusChange }: Props) {
   const [streamUrl, setStreamUrl] = useState("");
   const [status, setStatus] = useState<StreamStatus>("connecting");
   const timerRef = useRef<number>(undefined);
@@ -92,6 +102,22 @@ export default function CarStream({ carId, onStatusChange }: Props) {
           reconnect();
         }}
       />
+      {status === "connected" && detections.map((detection, index) => (
+        <div
+          key={`${detection.className}-${index}-${detection.left}-${detection.top}`}
+          className="pointer-events-none absolute z-20 border-2 border-emerald-400"
+          style={{
+            left: `${detection.left * 100}%`,
+            top: `${detection.top * 100}%`,
+            width: `${(detection.right - detection.left) * 100}%`,
+            height: `${(detection.bottom - detection.top) * 100}%`,
+          }}
+        >
+          <span className="absolute left-0 top-0 -translate-y-full whitespace-nowrap bg-emerald-500 px-1.5 py-0.5 text-xs font-semibold text-slate-950">
+            {detection.className} {Math.round(detection.confidence * 100)}%
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

@@ -1,10 +1,49 @@
 import { useEffect, useState } from "react";
 import { Button } from "../../components/Button";
-import CarStream, { type StreamStatus } from "../../components/CarStream";
-import { getCarInfo, sendCarAction, type Car } from "../../api/services/car-service";
+import CarStream, { type Detection, type StreamStatus } from "../../components/CarStream";
+import { connectCarSocket, getCarInfo, sendCarAction, type Car } from "../../api/services/car-service";
 import type { TCarAction } from "../../api/types/car-action-type";
 
 type Props = { carId: string };
+
+type ApiRecord = Record<string, unknown>;
+
+const isRecord = (value: unknown): value is ApiRecord =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const numberInRange = (value: unknown): number | null =>
+  typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1
+    ? value
+    : null;
+
+/** Returns null when a socket message is not an object-detection payload. */
+const parseDetections = (message: unknown): Detection[] | null => {
+  if (typeof message !== "string") return null;
+
+  try {
+    const envelope: unknown = JSON.parse(message);
+    const payload: unknown = isRecord(envelope) && typeof envelope.data === "string"
+      ? JSON.parse(envelope.data)
+      : envelope;
+    if (!isRecord(payload) || !Array.isArray(payload.objects)) return null;
+
+    return payload.objects.flatMap((object): Detection[] => {
+      if (!isRecord(object) || typeof object.class !== "string") return [];
+      const confidence = numberInRange(object.confidence);
+      const left = numberInRange(object.left);
+      const top = numberInRange(object.top);
+      const right = numberInRange(object.right);
+      const bottom = numberInRange(object.bottom);
+      if (confidence === null || left === null || top === null || right === null || bottom === null || right <= left || bottom <= top) {
+        return [];
+      }
+
+      return [{ className: object.class, confidence, left, top, right, bottom }];
+    });
+  } catch {
+    return null;
+  }
+};
 
 const formatDate = (value?: string) => {
   if (!value) return "—";
@@ -18,6 +57,7 @@ function CarPage({ carId }: Props) {
   const [infoError, setInfoError] = useState("");
   const [actionError, setActionError] = useState("");
   const [cameraStatus, setCameraStatus] = useState<StreamStatus>("connecting");
+  const [detections, setDetections] = useState<Detection[]>([]);
 
   useEffect(() => {
     const loadCar = async () => {
@@ -33,6 +73,45 @@ function CarPage({ carId }: Props) {
       }
     };
     void loadCar();
+  }, [carId]);
+
+  useEffect(() => {
+    const socket = connectCarSocket(carId);
+    let isCurrent = true;
+    setDetections([]);
+    console.log("Car socket connecting");
+
+    socket.addEventListener("open", () => {
+      if (!isCurrent) return;
+      console.log("Car socket opened");
+    });
+    socket.addEventListener("error", () => {
+      if (!isCurrent) return;
+      console.log("Car socket error");
+    });
+    socket.addEventListener("message", (event) => {
+      if (!isCurrent) return;
+      console.log("Car socket message", { data: event.data });
+      const nextDetections = parseDetections(event.data);
+      if (nextDetections !== null) {
+        setDetections(nextDetections);
+      }
+    });
+    socket.addEventListener("close", (event) => {
+      console.log("Car socket closed", {
+        carId,
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean,
+        event,
+      });
+    });
+
+    return () => {
+      isCurrent = false;
+      console.log("Car socket closing", { carId, url: socket.url });
+      socket.close();
+    };
   }, [carId]);
 
   const runAction = async (action: TCarAction) => {
@@ -62,7 +141,7 @@ function CarPage({ carId }: Props) {
             </span>
           </div>
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_210px]">
-            <CarStream carId={carId} onStatusChange={setCameraStatus} />
+            <CarStream carId={carId} detections={detections} onStatusChange={setCameraStatus} />
 
             <div className="border-t border-slate-100 pt-5 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
               <h2 className="mb-4 text-center text-lg font-semibold text-slate-900">Drive controls</h2>
