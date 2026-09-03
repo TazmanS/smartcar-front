@@ -1,4 +1,4 @@
-import { api } from "../client";
+import { api, getWebSocketUrl, PATH } from "../client";
 import type { TCarAction } from "../types/car-action-type";
 
 export type Car = {
@@ -73,4 +73,9 @@ export const sendCarAction = async (
 ): Promise<unknown> => {
   const response = await api.post(`/cars/${encodeURIComponent(carId)}/actions`, { action: command });
   return response.data;
+};
+
+export const connectCarSocket = (carId: string): WebSocket => {
+  const path = `${PATH}/cars/${encodeURIComponent(carId)}/socket`;
+  return new WebSocket(getWebSocketUrl(path));
 };
